@@ -1,0 +1,6 @@
+wish
+*.o
+build/
+tests-out/
+.vscode/
+.idea/
