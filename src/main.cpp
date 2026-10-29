@@ -1,15 +1,32 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #include "error.hpp"
+#include "parser.hpp"
 
 namespace {
 
 // Handles one input line (without the trailing newline).
-// TODO: replace the echo with parsing and execution in the next stages.
+// TODO: replace the debug print with execution in the next stage.
 void processLine(const std::string& line) {
-    std::printf("[debug] read: '%s'\n", line.c_str());
+    std::vector<Command> commands;
+    if (!parseLine(line, commands)) {
+        printError();
+        return;
+    }
+
+    for (size_t i = 0; i < commands.size(); ++i) {
+        std::printf("[debug] command %zu:", i + 1);
+        for (const std::string& arg : commands[i].args) {
+            std::printf(" [%s]", arg.c_str());
+        }
+        if (!commands[i].outputFile.empty()) {
+            std::printf(" > [%s]", commands[i].outputFile.c_str());
+        }
+        std::printf("\n");
+    }
 }
 
 }  // namespace
