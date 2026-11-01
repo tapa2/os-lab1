@@ -4,28 +4,25 @@
 #include <vector>
 
 #include "error.hpp"
+#include "executor.hpp"
 #include "parser.hpp"
 
 namespace {
 
 // Handles one input line (without the trailing newline).
-// TODO: replace the debug print with execution in the next stage.
-void processLine(const std::string& line) {
+// For now commands run one after another; '&' parallelism comes later.
+void processLine(const std::string& line, const std::vector<std::string>& searchPath) {
     std::vector<Command> commands;
     if (!parseLine(line, commands)) {
         printError();
         return;
     }
 
-    for (size_t i = 0; i < commands.size(); ++i) {
-        std::printf("[debug] command %zu:", i + 1);
-        for (const std::string& arg : commands[i].args) {
-            std::printf(" [%s]", arg.c_str());
+    for (const Command& command : commands) {
+        pid_t pid = launchCommand(command, searchPath);
+        if (pid > 0) {
+            waitForChild(pid);
         }
-        if (!commands[i].outputFile.empty()) {
-            std::printf(" > [%s]", commands[i].outputFile.c_str());
-        }
-        std::printf("\n");
     }
 }
 
@@ -47,6 +44,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // Directories searched for programs; changed later by the `path` built-in.
+    std::vector<std::string> searchPath{"/bin"};
+
     // getline() allocates and grows the buffer itself, so lines of any length work.
     char* buffer = nullptr;
     size_t capacity = 0;
@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
         if (!line.empty() && line.back() == '\n') {
             line.pop_back();
         }
-        processLine(line);
+        processLine(line, searchPath);
     }
 
     std::free(buffer);
