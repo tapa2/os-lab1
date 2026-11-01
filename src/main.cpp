@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "builtins.hpp"
 #include "error.hpp"
 #include "executor.hpp"
 #include "parser.hpp"
@@ -11,7 +12,7 @@ namespace {
 
 // Handles one input line (without the trailing newline).
 // For now commands run one after another; '&' parallelism comes later.
-void processLine(const std::string& line, const std::vector<std::string>& searchPath) {
+void processLine(const std::string& line, std::vector<std::string>& searchPath) {
     std::vector<Command> commands;
     if (!parseLine(line, commands)) {
         printError();
@@ -19,6 +20,9 @@ void processLine(const std::string& line, const std::vector<std::string>& search
     }
 
     for (const Command& command : commands) {
+        if (runBuiltin(command, searchPath)) {
+            continue;
+        }
         pid_t pid = launchCommand(command, searchPath);
         if (pid > 0) {
             waitForChild(pid);
