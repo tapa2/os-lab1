@@ -11,7 +11,8 @@
 namespace {
 
 // Handles one input line (without the trailing newline).
-// For now commands run one after another; '&' parallelism comes later.
+// '&'-separated commands run in parallel: all of them are started first,
+// and only then the shell waits for every child to finish.
 void processLine(const std::string& line, std::vector<std::string>& searchPath) {
     std::vector<Command> commands;
     if (!parseLine(line, commands)) {
@@ -19,14 +20,19 @@ void processLine(const std::string& line, std::vector<std::string>& searchPath) 
         return;
     }
 
+    std::vector<pid_t> children;
     for (const Command& command : commands) {
         if (runBuiltin(command, searchPath)) {
             continue;
         }
         pid_t pid = launchCommand(command, searchPath);
         if (pid > 0) {
-            waitForChild(pid);
+            children.push_back(pid);
         }
+    }
+
+    for (pid_t pid : children) {
+        waitForChild(pid);
     }
 }
 
