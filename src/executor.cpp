@@ -1,5 +1,6 @@
 #include "executor.hpp"
 
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -8,6 +9,22 @@
 #include "error.hpp"
 
 namespace {
+
+// Called in the child only: makes stdout and stderr of this process point to
+// the file (created or truncated). File descriptors survive execv(), so the
+// program writes to the file without knowing it. Exits the child on failure.
+void redirectOutputOrExit(const std::string& file) {
+    int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1) {
+        printError();
+        _exit(1);
+    }
+    if (dup2(fd, STDOUT_FILENO) == -1 || dup2(fd, STDERR_FILENO) == -1) {
+        printError();
+        _exit(1);
+    }
+    close(fd);  // descriptors 1 and 2 now refer to the file; fd is not needed
+}
 
 // Returns "<dir>/<name>" for the first directory in searchPath that contains
 // an executable file with that name, or an empty string if there is none.
@@ -48,7 +65,10 @@ pid_t launchCommand(const Command& command, const std::vector<std::string>& sear
         return -1;
     }
     if (pid == 0) {
-        // Child: replace this process image with the program.
+        // Child: set up redirection, then replace this process image with the program.
+        if (!command.outputFile.empty()) {
+            redirectOutputOrExit(command.outputFile);
+        }
         execv(program.c_str(), argv.data());
         // execv() returns only on failure.
         printError();
